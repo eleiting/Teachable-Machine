@@ -22,6 +22,7 @@ import sys
 import time
 from threading import Thread
 import importlib.util
+import socketio
 
 # Define VideoStream class to handle streaming of video from webcam in separate processing thread
 # Source - Adrian Rosebrock, PyImageSearch: https://www.pyimagesearch.com/2015/12/28/increasing-raspberry-pi-fps-with-python-and-opencv/
@@ -64,6 +65,20 @@ class VideoStream:
     def stop(self):
 	# Indicate that the camera and thread should be stopped
         self.stopped = True
+
+sio = socketio.client()
+
+ @sio.event
+def connect():
+    print('connection established')
+
+@sio.event
+def disconnect():
+    print('connection disconnected')
+
+sio.connection('https://iot-project-server.glitch.me');
+sio.wait()
+
 
 # Define and parse input arguments
 parser = argparse.ArgumentParser()
@@ -158,6 +173,8 @@ freq = cv2.getTickFrequency()
 videostream = VideoStream(resolution=(imW,imH),framerate=30).start()
 time.sleep(1)
 
+timeAway = 0;
+sendAlert = False;
 #for frame1 in camera.capture_continuous(rawCapture, format="bgr",use_video_port=True):
 while True:
 
@@ -188,18 +205,23 @@ while True:
     #num = interpreter.get_tensor(output_details[3]['index'])[0]  # Total number of detected objects (inaccurate and not needed)
 
     # Loop over all detections and draw detection box if confidence is above minimum threshold
+    personPresent = False;
     for i in range(len(scores)):
-        if ((scores[i] > min_conf_threshold) and (scores[i] <= 1.0)):
-            
-            print(scores[i])
-            # Get bounding box coordinates and draw box
-            # Interpreter can return coordinates that are outside of image dimensions, need to force them to be within image using max() and min()
-            #ymin = int(max(1,(boxes[i][0] * imH)))
-            #xmin = int(max(1,(boxes[i][1] * imW)))
-            #ymax = int(min(imH,(boxes[i][2] * imH)))
-            #xmax = int(min(imW,(boxes[i][3] * imW)))
-            
-            #cv2.rectangle(frame, (xmin,ymin), (xmax,ymax), (10, 255, 0), 2)
+        if ((scores[i] > min_conf_threshold) and (scores[i] <= 1.0) and classes[i] == 'person'):
+            personPresent = True
+            print('Person in here');
+
+    if (personPresent):
+        timeAway = 0
+        sendAlert = True
+    else:
+        timeAway+=(cv2.getTickCount() - t1) / freq
+        if timeAway > 5 and sendAlert:
+            sio.emit('lightOffPrompt')
+            sendAlert = False
+
+
+
 
     # Press 'q' to quit
     if cv2.waitKey(1) == ord('q'):
