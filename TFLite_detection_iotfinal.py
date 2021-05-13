@@ -207,7 +207,7 @@ while True:
     # Loop over all detections and draw detection box if confidence is above minimum threshold
     personPresent = False;
     for i in range(len(scores)):
-        if ((scores[i] > min_conf_threshold) and (scores[i] <= 1.0) and classes[i] == 'person'):
+        if ((scores[i] > min_conf_threshold) and (scores[i] <= 1.0) and labels[(int)classes[i]] == 'person'):
             personPresent = True
             print('Person in here');
 
